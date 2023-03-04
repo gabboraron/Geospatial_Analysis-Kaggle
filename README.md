@@ -115,3 +115,157 @@ In case the EPSG code is not available in GeoPandas, we can change the CRS with 
 
 All three types of geometric objects have built-in attributes that you can use to quickly analyze the dataset. For instance, you can get the x- and y-coordinates of a Point from the x and y attributes, respectively. And, you can get the length of a LineString from the length attribute. Or, you can get the area of a Polygon from the area attribute.
 
+## Interactive Maps
+For this we will use `folium` package:
+
+Several map styles available: https://github.com/python-visualization/folium/tree/main/folium/templates/tiles
+
+```Python
+import folium
+from folium import Choropleth, Circle, Marker
+from folium.plugins import HeatMap, MarkerCluster
+
+# Create a map
+m_1 = folium.Map(location=[42.32,-71.0589], tiles='openstreetmap', zoom_start=10)
+  #  sets the initial center of the map. We use the latitude (42.32° N) and longitude (-71.0589° E) of the city of Boston. 
+  # tiles changes the styling of the map; in this case, we choose the OpenStreetMap style.
+  # zoom_start sets the initial level of zoom of the map, where higher values zoom in closer to the map.
+  
+# Display the map
+m_1
+```
+
+Now, we'll add some data to the map! We won't focus on the data loading step. Instead, you can imagine you are at a point where you already have the data in a pandas DataFrame. 
+
+We add markers to the map with `folium.Marker()`.
+
+If we have a lot of markers to add, `folium.plugins.MarkerCluster()` can help to declutter the map. Each marker is added to a MarkerCluster object.
+```Python
+# Create the map
+m_3 = folium.Map(location=[42.32,-71.0589], tiles='cartodbpositron', zoom_start=13)
+
+# Add points to the map
+mc = MarkerCluster()
+for idx, row in daytime_robberies.iterrows():
+    if not math.isnan(row['Long']) and not math.isnan(row['Lat']):
+        mc.add_child(Marker([row['Lat'], row['Long']]))
+m_3.add_child(mc)
+
+# Display the map
+m_3
+```
+
+### Bubble maps
+A bubble map uses circles instead of markers. By varying the size and color of each circle, we can also show the relationship between location and two other variables.
+We create a bubble map by using `folium.Circle()` to iteratively add circles. 
+
+The arguments:
+- `location` is a list containing the center of the circle, in latitude and longitude.
+- `radius` sets the radius of the circle.
+  *Note that in a traditional bubble map, the radius of each circle is allowed to vary. We can implement this by defining a function similar to the color_producer() function that is used to vary the color of each circle.*
+- `color` sets the color of each circle.
+  *The color_producer() function is used to visualize the effect of the hour on robbery location.*
+
+```Python
+# Create a base map
+m_4 = folium.Map(location=[42.32,-71.0589], tiles='cartodbpositron', zoom_start=13)
+
+def color_producer(val):
+    if val <= 12:
+        return 'forestgreen'
+    else:
+        return 'darkred'
+
+# Add a bubble map to the base map
+for i in range(0,len(daytime_robberies)):
+    Circle(
+        location=[daytime_robberies.iloc[i]['Lat'], daytime_robberies.iloc[i]['Long']],
+        radius=20,
+        color=color_producer(daytime_robberies.iloc[i]['HOUR'])).add_to(m_4)
+
+# Display the map
+m_4
+```
+
+### Heatmaps
+To create a heatmap, we use `folium.plugins.HeatMap()`. This shows the density of crime in different areas of the city, where red areas have relatively more criminal incidents.
+
+The arguments:
+- `data` is a DataFrame containing the locations that we'd like to plot.
+- `radius` controls the smoothness of the heatmap. Higher values make the heatmap look smoother (i.e., with fewer gaps).
+
+```Python
+# Create a base map
+m_5 = folium.Map(location=[42.32,-71.0589], tiles='cartodbpositron', zoom_start=12)
+
+# Add a heatmap to the base map
+HeatMap(data=crimes[['Lat', 'Long']], radius=10).add_to(m_5)
+
+# Display the map
+m_5
+```
+
+### Choropleth maps
+To understand how crime varies by police district, we'll create a choropleth map.
+
+As a first step, we create a GeoDataFrame where each district is assigned a different row, and the "geometry" column contains the geographical boundaries.
+```Python
+# GeoDataFrame with geographical boundaries of Boston police districts
+districts_full = gpd.read_file('../input/geospatial-learn-course-data/Police_Districts/Police_Districts/Police_Districts.shp')
+districts = districts_full[["DISTRICT", "geometry"]].set_index("DISTRICT")
+districts.head()
+
+# Number of crimes in each police district
+plot_dict = crimes.DISTRICT.value_counts() #It's very important that plot_dict has the same index as districts - this is how the code knows how to match the geographical boundaries with appropriate colors.
+plot_dict.head()
+
+# Create a base map
+m_6 = folium.Map(location=[42.32,-71.0589], tiles='cartodbpositron', zoom_start=12)
+
+# Add a choropleth map to the base map
+Choropleth(geo_data=districts.__geo_interface__, #geo_data is a GeoJSON FeatureCollection containing the boundaries of each geographical area; we convert the districts GeoDataFrame to a GeoJSON FeatureCollection with the __geo_interface__ attribute.
+           data=plot_dict, #data is a Pandas Series containing the values that will be used to color-code each geographical area. 
+           key_on="feature.id", #key_on will always be set to feature.id. 
+           fill_color='YlGnBu', #sets the color scale. 
+           legend_name='Major criminal incidents (Jan-Aug 2018)' #labels the legend in the top right corner of the map.
+          ).add_to(m_6)
+
+# Display the map
+m_6
+```
+
+## Manipulating Geospatial Data
+Geocoding is the process of converting the name of a place or an address to a location on a map. If you have ever looked up a geographic location based on a landmark description with Google Maps, Bing Maps, or Baidu Maps, for instance, then you have used a geocoder!
+
+We begin by instantiating the geocoder. Then, we need only apply the name or address as a Python string. (In this case, we supply "Pyramid of Khufu", also known as the Great Pyramid of Giza.) If the geocoding is successful, it returns a `geopy.location.Location` object with two important attributes:
+
+`from geopy.geocoders import Nominatim`
+- the "point" attribute contains the (latitude, longitude) location, and
+- the "address" attribute contains the full address.
+
+The value for the "point" attribute is a geopy.point.Point object, and we can get the latitude and longitude from the latitude and longitude attributes, respectively.
+
+```Python
+geolocator = Nominatim(user_agent="kaggle_learn")
+location = geolocator.geocode("Pyramid of Khufu")
+
+print(location.point)
+print(location.address)
+```
+
+## Proximity Analysis - *Measure distance, and explore neighboring points on a map*
+- measure the distance between points on a map, and
+- select all points within some radius of a feature.
+
+To measure distances between points from two different GeoDataFrames, we first have to make sure that they use the same coordinate reference system (CRS). We also check the CRS to see which units it uses (meters, feet, or something else). In this case, EPSG 2272 has units of feet.
+
+It's relatively straightforward to compute distances in GeoPandas. The code cell below calculates the distance (in feet) between a relatively recent release incident in recent_release and every station in the stations GeoDataFrame.
+
+```Python
+# Select one release incident in particular
+recent_release = releases.iloc[360]
+
+# Measure distance from release to each station
+distances = stations.geometry.distance(recent_release.geometry)
+distances
+```
