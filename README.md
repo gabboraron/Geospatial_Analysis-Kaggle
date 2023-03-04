@@ -269,3 +269,9 @@ recent_release = releases.iloc[360]
 distances = stations.geometry.distance(recent_release.geometry)
 distances
 ```
+
+If we want to understand all points on a map that are some radius away from a point, the simplest way is to create a buffer.
+
+We use folium.GeoJson() to plot each polygon on a map. Note that since folium requires coordinates in latitude and longitude, we have to convert the CRS to EPSG 4326 before plotting.
+
+
