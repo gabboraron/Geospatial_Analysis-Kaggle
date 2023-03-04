@@ -8,7 +8,7 @@ sources:
 - [Kaggle - Pandas](https://www.kaggle.com/learn/pandas)
 - [GeoPandas](https://geopandas.org/en/stable/)
 - [Shapefile vs. GeoJSON vs. GeoPackage by Juho Häme](https://feed.terramonitor.com/shapefile-vs-geopackage-vs-geojson/)
-- []()
+- [Data Renaming and Combining by Aleksey Bilogur](https://www.kaggle.com/code/residentmario/renaming-and-combining/tutorial)
 
 ## Your First Map
 Original article: [Your First Map by Alexis Cook](https://www.kaggle.com/code/alexisbcook/your-first-map) 
